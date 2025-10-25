@@ -1,38 +1,27 @@
-// commands/statystyki.js
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const Review = require('../models/Review');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('statystyki')
-        .setDescription('Wyświetla statystyki wszystkich opinii'),
-
+        .setDescription('Pokazuje średnie oceny z opinii.'),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: false });
+        const reviews = await Review.find();
+        if (!reviews.length) return interaction.reply({ content: 'Brak opinii.', ephemeral: true });
 
-        try {
-            const reviews = await Review.find({});
-            if (!reviews.length) return interaction.editReply('Brak opinii w bazie danych.');
+        const avgWait = (reviews.reduce((a, r) => a + r.waitTime, 0) / reviews.length).toFixed(2);
+        const avgQuality = (reviews.reduce((a, r) => a + r.quality, 0) / reviews.length).toFixed(2);
+        const avgTrans = (reviews.reduce((a, r) => a + r.transaction, 0) / reviews.length).toFixed(2);
 
-            const totalReviews = reviews.length;
-            const avgWait = (reviews.reduce((sum, r) => sum + r.waitTime, 0) / totalReviews).toFixed(2);
-            const avgQuality = (reviews.reduce((sum, r) => sum + r.quality, 0) / totalReviews).toFixed(2);
-            const avgTransaction = (reviews.reduce((sum, r) => sum + r.transaction, 0) / totalReviews).toFixed(2);
+        const embed = new EmbedBuilder()
+            .setTitle('Statystyki opinii')
+            .addFields(
+                { name: 'Średni czas oczekiwania', value: `${avgWait}/5`, inline: true },
+                { name: 'Średnia jakość produktu', value: `${avgQuality}/5`, inline: true },
+                { name: 'Średni przebieg transakcji', value: `${avgTrans}/5`, inline: true }
+            )
+            .setTimestamp();
 
-            const embed = new EmbedBuilder()
-                .setTitle('📊 Statystyki opinii')
-                .addFields(
-                    { name: 'Liczba opinii', value: `${totalReviews}`, inline: true },
-                    { name: 'Średni czas oczekiwania', value: `${avgWait} ★`, inline: true },
-                    { name: 'Średnia jakość produktu', value: `${avgQuality} ★`, inline: true },
-                    { name: 'Średni przebieg transakcji', value: `${avgTransaction} ★`, inline: true }
-                )
-                .setTimestamp();
-
-            await interaction.editReply({ embeds: [embed] });
-        } catch (err) {
-            console.error(err);
-            await interaction.editReply({ content: '❌ Wystąpił błąd podczas generowania statystyk.' });
-        }
-    },
+        await interaction.reply({ embeds: [embed] });
+    }
 };
