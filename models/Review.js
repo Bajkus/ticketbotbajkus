@@ -1,16 +1,14 @@
-const mongoose2 = require('mongoose');
+// models/Review.js
+const mongoose = require('mongoose');
 
-
-const ReviewSchema = new mongoose2.Schema({
-userId: { type: String, required: true },
-userTag: { type: String },
-waitTime: { type: Number, required: true },
-quality: { type: Number, required: true },
-transaction: { type: Number, required: true },
-comment: { type: String },
-ticketId: { type: String },
-createdAt: { type: Date, default: Date.now }
+const reviewSchema = new mongoose.Schema({
+    userId: String,
+    userTag: String,
+    waitTime: Number,
+    quality: Number,
+    transaction: Number,
+    comment: String,
+    createdAt: { type: Date, default: Date.now },
 });
 
-
-module.exports = mongoose2.model('Review', ReviewSchema);
+module.exports = mongoose.model('Review', reviewSchema);
