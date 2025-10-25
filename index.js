@@ -1,4 +1,3 @@
-// index.js
 const fs = require('fs');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { REST, Routes } = require('discord.js');
@@ -12,7 +11,6 @@ client.commands = new Collection();
 
 // Ładowanie komend z folderu ./commands
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-
 const commands = [];
 for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
@@ -20,7 +18,7 @@ for (const file of commandFiles) {
     commands.push(command.data.toJSON());
 }
 
-// Rejestracja komend **guild commands** (natychmiast widoczne)
+// Rejestracja komend guild (natychmiast widoczne na serwerze)
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
@@ -43,17 +41,7 @@ client.once('ready', () => {
 
 // Event interactionCreate
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(error);
-        await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', ephemeral: true });
-    }
+    require('./events/interactionCreate').execute(interaction);
 });
 
 // Logowanie bota
