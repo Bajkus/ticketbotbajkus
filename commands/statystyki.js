@@ -1,6 +1,6 @@
-// /commands/statystyki.js
+// commands/statystyki.js
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const Review = require('../models/Review'); // Twój model opinii w MongoDB
+const Review = require('../models/Review');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -8,15 +8,12 @@ module.exports = {
         .setDescription('Wyświetla statystyki wszystkich opinii'),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: false }); // Publiczna odpowiedź
+        await interaction.deferReply({ ephemeral: false });
 
         try {
             const reviews = await Review.find({});
-            if (!reviews.length) {
-                return interaction.editReply('Brak opinii w bazie danych.');
-            }
+            if (!reviews.length) return interaction.editReply('Brak opinii w bazie danych.');
 
-            // Oblicz średnie
             const totalReviews = reviews.length;
             const avgWait = (reviews.reduce((sum, r) => sum + r.waitTime, 0) / totalReviews).toFixed(2);
             const avgQuality = (reviews.reduce((sum, r) => sum + r.quality, 0) / totalReviews).toFixed(2);
