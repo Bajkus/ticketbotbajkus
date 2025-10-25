@@ -6,28 +6,30 @@ module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction) {
 
-        // Obsługa przycisków
+        // ---------- OBSŁUGA PRZYCISKÓW ----------
         if (interaction.isButton()) {
             const guild = interaction.guild;
             const member = interaction.member;
 
-            // Tworzenie kanału ticketowego
-            const category = guild.channels.cache.find(c => c.name === 'Ticket Bot' && c.type === 4); // Kategoria
+            // Kategoria ticketowa
+            const category = guild.channels.cache.find(c => c.name === 'Ticket Bot' && c.type === 4);
             const ticketName = `${interaction.customId}-${member.user.username}`.toLowerCase();
 
+            // Tworzenie kanału ticketowego
             const channel = await guild.channels.create({
                 name: ticketName,
                 type: 0, // tekstowy
                 parent: category?.id || null,
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: ['ViewChannel'] },
-                    { id: member.id, allow: ['ViewChannel', 'SendMessages'] },
+                    { id: member.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                    { id: guild.members.me.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
                 ],
             });
 
-            await channel.send(`${member}, twój ticket został utworzony!`);
+            await channel.send(`${member}, Twój ticket został utworzony!`);
 
-            // Funkcja do zadawania pytań
+            // Funkcja do zadawania pytań w tickecie
             const ask = async (question) => {
                 await channel.send(question);
                 return new Promise((resolve, reject) => {
@@ -41,6 +43,7 @@ module.exports = {
                 });
             };
 
+            // ---------- TICKET ZAMÓWIENIA ----------
             if (interaction.customId === 'panel_zamowienie') {
                 await interaction.reply({ content: 'Tworzę ticket zamówienia...', ephemeral: true });
 
@@ -63,7 +66,7 @@ module.exports = {
                     const commentRaw = await ask('Dodatkowy komentarz (opcjonalnie, wpisz "-" aby pominąć):');
                     const comment = commentRaw === '-' ? '' : commentRaw;
 
-                    // Zapis opinii w MongoDB
+                    // Zapis opinii do MongoDB
                     const review = new Review({
                         userId: member.id,
                         userTag: member.user.tag,
@@ -100,13 +103,14 @@ module.exports = {
                 }
             }
 
+            // ---------- TICKET REKLAMACJI ----------
             if (interaction.customId === 'panel_reklamacja') {
                 await interaction.reply({ content: 'Tworzę ticket reklamacji...', ephemeral: true });
                 await channel.send('Kanał reklamacji utworzony. Moderator wkrótce się skontaktuje.');
             }
         }
 
-        // Obsługa komend slash
+        // ---------- OBSŁUGA KOMEND SLASH ----------
         if (interaction.isChatInputCommand()) {
             const command = interaction.client.commands.get(interaction.commandName);
             if (!command) return;
