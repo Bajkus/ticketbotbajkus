@@ -1,1 +1,0 @@
-// ticketHandler.js - wklej tutaj pełny kod
