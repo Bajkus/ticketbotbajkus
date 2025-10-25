@@ -1,41 +1,60 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Collection, Partials } = require('discord.js');
-const mongoose = require('mongoose');
+// index.js
 const fs = require('fs');
-const path = require('path');
-const chalk = require('chalk');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { REST, Routes } = require('discord.js');
+require('dotenv').config();
 
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-    partials: [Partials.Channel]
-});
+// Tworzenie klienta
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// Kolekcja komend
 client.commands = new Collection();
 
-// Load commands
-const commandsPath = path.join(__dirname, 'commands');
-fs.readdirSync(commandsPath).filter(file => file.endsWith('.js')).forEach(file => {
+// Ładowanie komend z folderu ./commands
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+const commands = [];
+for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
     client.commands.set(command.data.name, command);
-});
-
-// Load events
-const eventsPath = path.join(__dirname, 'events');
-fs.readdirSync(eventsPath).filter(file => file.endsWith('.js')).forEach(file => {
-    const event = require(`./events/${file}`);
-    if(event.once){
-    client.once(event.name, (...args) => event.execute(...args, client));
-} else {
-    client.on(event.name, (...args) => event.execute(...args, client));
+    commands.push(command.data.toJSON());
 }
+
+// Rejestracja komend **guild commands** (natychmiast widoczne)
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+(async () => {
+    try {
+        console.log(`🔄 Rejestracja ${commands.length} komend na serwerze...`);
+        await rest.put(
+            Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+            { body: commands }
+        );
+        console.log('✅ Komendy zostały zarejestrowane na serwerze.');
+    } catch (error) {
+        console.error(error);
+    }
+})();
+
+// Event ready
+client.once('ready', () => {
+    console.log(`✅ Bot gotowy! Zalogowano jako ${client.user.tag}`);
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('✅ MongoDB connected!'))
-    .catch(err => console.log('❌ MongoDB connection error:', err));
+// Event interactionCreate
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
 
-// Login
-client.login(process.env.TOKEN)
-    .then(() => console.log(`✅ Bot logged in as ${client.user.tag}`))
-    .catch(err => console.log('❌ Discord login error:', err));
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+
+    try {
+        await command.execute(interaction);
+    } catch (error) {
+        console.error(error);
+        await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', ephemeral: true });
+    }
+});
+
+// Logowanie bota
+client.login(process.env.TOKEN);
