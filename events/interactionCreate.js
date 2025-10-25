@@ -14,19 +14,18 @@ module.exports = {
     name: 'interactionCreate',
     async execute(interaction, client) {
         try {
-            // BUTTONS
+            // 1️⃣ BUTTONS
             if (interaction.isButton()) {
-                // Ticket panel buttons
+                // Panel ticketowy
                 if (interaction.customId.startsWith('panel_')) {
-                    await interaction.deferUpdate(); // <- kluczowe dla uniknięcia "This interaction failed"
+                    await interaction.deferUpdate();
 
                     const type = interaction.customId.split('_')[1]; // zamowienie / reklamacja
                     const ticketName = `${config.ticketPrefix}${type}-${interaction.user.username}`.toLowerCase();
 
-                    // Tworzymy kanał ticket w kategorii
                     const ticketChannel = await interaction.guild.channels.create({
                         name: ticketName,
-                        type: 0, // GUILD_TEXT
+                        type: 0,
                         parent: config.ticketCategoryId,
                         permissionOverwrites: [
                             { id: interaction.guild.roles.everyone, deny: ['ViewChannel'] },
@@ -34,7 +33,6 @@ module.exports = {
                         ]
                     });
 
-                    // Embed i przycisk do formularza
                     const embed = new EmbedBuilder()
                         .setTitle(`Ticket: ${type}`)
                         .setDescription('Kliknij przycisk aby wypełnić formularz.');
@@ -43,18 +41,21 @@ module.exports = {
                         new ButtonBuilder()
                             .setCustomId(`form_${type}`)
                             .setLabel('Wypełnij formularz')
-                            .setStyle(ButtonStyle.Primary)
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId('opinia')
+                            .setLabel('Wystaw opinię')
+                            .setStyle(ButtonStyle.Secondary)
                     );
 
                     await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
                     await interaction.followUp({ content: `Kanał ticket został utworzony: <#${ticketChannel.id}>`, ephemeral: true });
                 }
 
-                // BUTTON do formularza
+                // Guzik formularza zamówienia
                 if (interaction.customId.startsWith('form_')) {
-                    await interaction.deferUpdate(); // <- konieczne
+                    await interaction.deferUpdate();
 
-                    // Modal dla zamówienia
                     if (interaction.customId === 'form_zamowienie') {
                         const modal = new ModalBuilder()
                             .setCustomId('modal_zamowienie')
@@ -83,13 +84,50 @@ module.exports = {
 
                         await interaction.showModal(modal);
                     }
+                }
 
-                    // Tutaj możesz analogicznie dodać modal dla reklamacji
+                // Guzik opinii
+                if (interaction.customId === 'opinia') {
+                    await interaction.deferUpdate();
+
+                    const modal = new ModalBuilder()
+                        .setCustomId('modal_opinia')
+                        .setTitle('Formularz opinii');
+
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('czas')
+                                .setLabel('Czas oczekiwania (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('jakosc')
+                                .setLabel('Jakość produktu (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('przebieg')
+                                .setLabel('Przebieg transakcji (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('komentarz')
+                                .setLabel('Dodatkowy komentarz (opcjonalnie)')
+                                .setStyle(TextInputStyle.Paragraph)
+                        )
+                    );
+
+                    await interaction.showModal(modal);
                 }
             }
 
-            // MODAL SUBMIT
+            // 2️⃣ MODAL SUBMIT
             if (interaction.isModalSubmit()) {
+                // Formularz zamówienia
                 if (interaction.customId === 'modal_zamowienie') {
                     const produkt = interaction.fields.getTextInputValue('produkt');
                     const ilosc = interaction.fields.getTextInputValue('ilosc');
@@ -106,10 +144,45 @@ module.exports = {
                         .setTimestamp();
 
                     await interaction.channel.send({ embeds: [embed] });
-                    await interaction.reply({ content: 'Zamówienie zostało zapisane!', ephemeral: true });
+                    await interaction.reply({ content: 'Zamówienie zapisane!', ephemeral: true });
+                }
 
-                    // Możesz tutaj też zapisać dane w MongoDB jeśli chcesz
-                    // const review = new Review({ ... }); await review.save();
+                // Formularz opinii
+                if (interaction.customId === 'modal_opinia') {
+                    const czas = parseInt(interaction.fields.getTextInputValue('czas')) || 0;
+                    const jakosc = parseInt(interaction.fields.getTextInputValue('jakosc')) || 0;
+                    const przebieg = parseInt(interaction.fields.getTextInputValue('przebieg')) || 0;
+                    const komentarz = interaction.fields.getTextInputValue('komentarz');
+
+                    // Zapis w MongoDB
+                    const review = new Review({
+                        userId: interaction.user.id,
+                        userTag: interaction.user.tag,
+                        waitTime: czas,
+                        quality: jakosc,
+                        transaction: przebieg,
+                        comment: komentarz
+                    });
+
+                    await review.save().catch(console.error);
+
+                    // Embed do kanału opinii
+                    const reviewEmbed = new EmbedBuilder()
+                        .setTitle('Nowa opinia')
+                        .setDescription(komentarz || 'Brak komentarza')
+                        .addFields(
+                            { name: 'Użytkownik', value: `<@${interaction.user.id}>`, inline: true },
+                            { name: 'Czas oczekiwania', value: `${'★'.repeat(Math.max(0, Math.min(5, czas)))} (${czas}/5)`, inline: true },
+                            { name: 'Jakość produktu', value: `${'★'.repeat(Math.max(0, Math.min(5, jakosc)))} (${jakosc}/5)`, inline: true },
+                            { name: 'Przebieg transakcji', value: `${'★'.repeat(Math.max(0, Math.min(5, przebieg)))} (${przebieg}/5)`, inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Opinia od ${interaction.user.tag}` });
+
+                    const reviewChannel = interaction.guild.channels.cache.get(config.reviewChannelId);
+                    if (reviewChannel) await reviewChannel.send({ embeds: [reviewEmbed] });
+
+                    await interaction.reply({ content: 'Dziękujemy za opinię!', ephemeral: true });
                 }
             }
         } catch (err) {
