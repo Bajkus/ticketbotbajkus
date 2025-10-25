@@ -1,1 +1,0 @@
-// backup.js - wklej tutaj pełny kod
