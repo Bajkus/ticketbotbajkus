@@ -1,23 +1,41 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('zapytajopinia')
-        .setDescription('Wysyła prośbę o opinię do użytkownika.')
-        .addUserOption(option => option.setName('uzytkownik').setDescription('Użytkownik').setRequired(true)),
+        .setDescription('Wyślij formularz opinii do użytkownika.'),
     async execute(interaction) {
-        if (!interaction.member.permissions.has('ManageGuild')) 
-            return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
+        const modal = new ModalBuilder()
+            .setCustomId('modal_opinia')
+            .setTitle('Formularz opinii');
 
-        const user = interaction.options.getUser('uzytkownik');
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`opinia_${user.id}`)
-                .setLabel('Wypełnij opinię')
-                .setStyle(ButtonStyle.Primary)
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('czas')
+                    .setLabel('Czas oczekiwania (1-5)')
+                    .setStyle(TextInputStyle.Short)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('jakosc')
+                    .setLabel('Jakość produktu (1-5)')
+                    .setStyle(TextInputStyle.Short)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('przebieg')
+                    .setLabel('Przebieg transakcji (1-5)')
+                    .setStyle(TextInputStyle.Short)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('komentarz')
+                    .setLabel('Dodatkowy komentarz (opcjonalnie)')
+                    .setStyle(TextInputStyle.Paragraph)
+            )
         );
 
-        await interaction.channel.send({ content: `<@${user.id}> proszę o wypełnienie opinii.`, components: [row] });
-        await interaction.reply({ content: 'Prośba o opinię wysłana.', ephemeral: true });
+        await interaction.showModal(modal);
     }
 };
