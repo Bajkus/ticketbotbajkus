@@ -12,6 +12,8 @@ module.exports = {
 
             // Panel zamówienie
             if (interaction.customId === 'panel_zamowienie') {
+                await interaction.reply({ content: 'Tworzę kanał ticketowy...', ephemeral: true });
+
                 const ticketChannel = await guild.channels.create({
                     name: `ticket-${member.user.username}`,
                     type: 0,
@@ -35,10 +37,10 @@ module.exports = {
                     );
 
                 await ticketChannel.send({ embeds: [embed], components: [row] });
-                return interaction.reply({ content: 'Kanał ticketowy utworzony!', ephemeral: true });
+                return interaction.editReply({ content: 'Kanał ticketowy utworzony!' });
             }
 
-            // Kliknięcie przycisku w ticketowym kanale → pokazanie modala zamówienia
+            // Kliknięcie przycisku w kanale ticketowym → modal zamówienia
             if (interaction.customId.startsWith('modal_zamowienie_')) {
                 const channelId = interaction.customId.split('_')[2];
                 if (interaction.channel.id !== channelId)
@@ -147,7 +149,7 @@ module.exports = {
                 await ticketChannel.send({ embeds: [embed] });
                 await interaction.reply({ content: 'Zamówienie zapisane!', ephemeral: true });
 
-                // Pokazujemy modal opinii po zamówieniu
+                // Od razu pokazujemy modal opinii
                 const opinionModal = new ModalBuilder()
                     .setCustomId('opinia_modal')
                     .setTitle('Formularz opinii');
