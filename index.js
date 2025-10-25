@@ -32,10 +32,10 @@ fs.readdirSync(eventsPath).filter(file => file.endsWith('.js')).forEach(file => 
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-.then(() => console.log(chalk.hex('#00FF00')('✅ MongoDB connected!')))
-.catch(err => console.log(chalk.hex('#FF0000')('❌ MongoDB connection error:'), err));
+.then(() => console.log(chalk.green('✅ MongoDB connected!')))
+.catch(err => console.log(chalk.red('❌ MongoDB connection error:'), err));
 
 // Login
 client.login(process.env.TOKEN)
-.then(() => console.log(chalk.hex('#00FF00')(`✅ Bot logged in as ${client.user.tag}`)))
-.catch(err => console.log(chalk.hex('#FF0000')('❌ Discord login error:'), err));
+.then(() => console.log(chalk.green(`✅ Bot logged in as ${client.user.tag}`)))
+.catch(err => console.log(chalk.red('❌ Discord login error:'), err));
