@@ -1,13 +1,11 @@
-// commands/setup.js
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('setup')
         .setDescription('Tworzy panel ticketowy (admin).'),
-
     async execute(interaction) {
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) 
+        if (!interaction.member.permissions.has('ManageGuild')) 
             return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
 
         const embed = new EmbedBuilder()
