@@ -1,0 +1,1 @@
+// ready.js - wklej tutaj pełny kod
