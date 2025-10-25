@@ -1,19 +1,29 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction } = require('discord.js');
-const Review = require('../models/Review');
+const {
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
+} = require('discord.js');
 const config = require('../config.json');
+const Review = require('../models/Review');
 
 module.exports = {
     name: 'interactionCreate',
     async execute(interaction, client) {
         try {
-            // Komenda / button
+            // BUTTONS
             if (interaction.isButton()) {
-                // Ticket buttons
+                // Ticket panel buttons
                 if (interaction.customId.startsWith('panel_')) {
+                    await interaction.deferUpdate(); // <- kluczowe dla uniknięcia "This interaction failed"
+
                     const type = interaction.customId.split('_')[1]; // zamowienie / reklamacja
                     const ticketName = `${config.ticketPrefix}${type}-${interaction.user.username}`.toLowerCase();
 
-                    // Tworzymy kanał ticket
+                    // Tworzymy kanał ticket w kategorii
                     const ticketChannel = await interaction.guild.channels.create({
                         name: ticketName,
                         type: 0, // GUILD_TEXT
@@ -24,7 +34,7 @@ module.exports = {
                         ]
                     });
 
-                    // Embed i button do wypełnienia formularza
+                    // Embed i przycisk do formularza
                     const embed = new EmbedBuilder()
                         .setTitle(`Ticket: ${type}`)
                         .setDescription('Kliknij przycisk aby wypełnić formularz.');
@@ -37,12 +47,14 @@ module.exports = {
                     );
 
                     await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
-                    await interaction.reply({ content: `Kanał ticket został utworzony: <#${ticketChannel.id}>`, ephemeral: true });
+                    await interaction.followUp({ content: `Kanał ticket został utworzony: <#${ticketChannel.id}>`, ephemeral: true });
                 }
 
-                // Formularz zamówienia / reklamacj
+                // BUTTON do formularza
                 if (interaction.customId.startsWith('form_')) {
-                    // Modal z pytaniami o zamówienie
+                    await interaction.deferUpdate(); // <- konieczne
+
+                    // Modal dla zamówienia
                     if (interaction.customId === 'form_zamowienie') {
                         const modal = new ModalBuilder()
                             .setCustomId('modal_zamowienie')
@@ -72,18 +84,17 @@ module.exports = {
                         await interaction.showModal(modal);
                     }
 
-                    // Tutaj możesz zrobić analogicznie dla reklamacji
+                    // Tutaj możesz analogicznie dodać modal dla reklamacji
                 }
             }
 
-            // Obsługa modal submit (po wypełnieniu formularza)
+            // MODAL SUBMIT
             if (interaction.isModalSubmit()) {
                 if (interaction.customId === 'modal_zamowienie') {
                     const produkt = interaction.fields.getTextInputValue('produkt');
                     const ilosc = interaction.fields.getTextInputValue('ilosc');
                     const platnosc = interaction.fields.getTextInputValue('platnosc');
 
-                    // Embed do kanału ticket
                     const embed = new EmbedBuilder()
                         .setTitle('Nowe zamówienie')
                         .addFields(
@@ -96,9 +107,11 @@ module.exports = {
 
                     await interaction.channel.send({ embeds: [embed] });
                     await interaction.reply({ content: 'Zamówienie zostało zapisane!', ephemeral: true });
+
+                    // Możesz tutaj też zapisać dane w MongoDB jeśli chcesz
+                    // const review = new Review({ ... }); await review.save();
                 }
             }
-
         } catch (err) {
             console.error('Błąd interactionCreate:', err);
             if (!interaction.replied) {
