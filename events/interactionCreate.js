@@ -66,4 +66,40 @@ module.exports = {
                             .setTitle('Nowa opinia')
                             .setDescription(comment || 'Brak komentarza')
                             .addFields(
-                                { name:
+                                { name: 'Użytkownik', value: `<@${member.id}>`, inline: true },
+                                { name: 'Czas oczekiwania', value: `${'★'.repeat(wait)} (${wait}/5)`, inline: true },
+                                { name: 'Jakość produktu', value: `${'★'.repeat(quality)} (${quality}/5)`, inline: true },
+                                { name: 'Przebieg transakcji', value: `${'★'.repeat(transaction)} (${transaction}/5)`, inline: true }
+                            )
+                            .setFooter({ text: `Opinia od ${member.user.tag}` })
+                            .setTimestamp();
+
+                        await reviewChannel.send({ embeds: [embed] });
+                    }
+
+                    await channel.send('Dziękujemy za opinię! Ticket zostanie zamknięty za 5 sekund.');
+                    setTimeout(() => channel.delete().catch(() => {}), 5000);
+
+                } catch (e) {
+                    console.error(e);
+                    await channel.send('Formularz opinii nie został wypełniony na czas — ticket pozostanie otwarty.');
+                }
+
+            } else if (interaction.customId === 'panel_reklamacja') {
+                await interaction.reply({ content: 'Tworzę ticket reklamacji...', ephemeral: true });
+                await channel.send('Kanał reklamacji utworzony. Moderator wkrótce się skontaktuje.');
+            }
+        }
+
+        if (interaction.isChatInputCommand()) {
+            const command = interaction.client.commands.get(interaction.commandName);
+            if (!command) return;
+            try {
+                await command.execute(interaction);
+            } catch (e) {
+                console.error(e);
+                await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', ephemeral: true });
+            }
+        }
+    },
+};
