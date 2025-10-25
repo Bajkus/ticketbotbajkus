@@ -27,68 +27,73 @@ module.exports = {
         // Obsługa Guzików
         // =========================
         if (interaction.isButton()) {
-            const customId = interaction.customId;
+    const { customId, member, guild } = interaction;
 
-            // --- Panel zamówienie / reklamacja ---
-            if (customId === 'panel_zamowienie' || customId === 'panel_reklamacja') {
-                await interaction.deferReply({ ephemeral: true }).catch(()=>{});
-                try {
-                    const ticketName = `${config.ticketPrefix}${member.user.username.toLowerCase()}`;
-                    const ticketChannel = await guild.channels.create({
-                        name: ticketName,
-                        type: 0, // 0 = GUILD_TEXT
-                        parent: config.ticketCategoryId,
-                        permissionOverwrites: [
-                            { id: guild.id, deny: ['ViewChannel'] },
-                            { id: member.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-                            { id: config.supportRoleId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
-                        ]
-                    });
+    if (customId === 'panel_zamowienie' || customId === 'panel_reklamacja') {
+        await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
-                    const embed = new EmbedBuilder()
-                        .setTitle(customId === 'panel_zamowienie' ? 'Formularz zamówienia' : 'Formularz reklamacji')
-                        .setDescription(customId === 'panel_zamowienie' 
-                            ? 'Kliknij poniższe przyciski, aby uzupełnić formularz zamówienia.'
-                            : 'Kliknij poniższe przyciski, aby zgłosić reklamację.');
+        try {
+            const ticketName = `${config.ticketPrefix}${member.user.username.toLowerCase()}`;
+            
+            // Tworzymy kanał ticket w kategorii
+            const ticketChannel = await guild.channels.create({
+                name: ticketName,
+                type: 0, // GUILD_TEXT
+                parent: config.ticketCategoryId,
+                permissionOverwrites: [
+                    { id: guild.id, deny: ['ViewChannel'] },
+                    { id: member.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                    { id: config.supportRoleId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
+                ]
+            });
 
-                    const row = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId('start_form')
-                                .setLabel('Rozpocznij')
-                                .setStyle(ButtonStyle.Primary)
-                        );
+            // Tworzymy embed z formularzem
+            const embed = new EmbedBuilder()
+                .setTitle(customId === 'panel_zamowienie' ? 'Formularz zamówienia' : 'Formularz reklamacji')
+                .setDescription(customId === 'panel_zamowienie' 
+                    ? 'Kliknij przycisk poniżej, aby rozpocząć formularz zamówienia.'
+                    : 'Kliknij przycisk poniżej, aby zgłosić reklamację.');
 
-                    await ticketChannel.send({ content: `<@${member.id}>`, embeds: [embed], components: [row] });
-                    await interaction.editReply({ content: `Ticket został utworzony: <#${ticketChannel.id}>`, ephemeral: true });
-                } catch (err) {
-                    console.error(err);
-                    await interaction.editReply({ content: 'Nie udało się utworzyć ticketu.', ephemeral: true });
-                }
-            }
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('start_form')
+                        .setLabel('Rozpocznij')
+                        .setStyle(ButtonStyle.Primary)
+                );
 
-            // --- Start formularza zamówienia ---
-            if (customId === 'start_form') {
-                await interaction.deferReply({ ephemeral: true }).catch(()=>{});
-                try {
-                    const ticketChannel = interaction.channel;
+            // Wysyłamy embed i oznaczamy użytkownika
+            await ticketChannel.send({ content: `<@${member.id}>`, embeds: [embed], components: [row] });
 
-                    const embed = new EmbedBuilder()
-                        .setTitle('Formularz zamówienia')
-                        .addFields(
-                            { name: 'Jaki produkt chcesz kupić?', value: 'Napisz odpowiedź poniżej.' },
-                            { name: 'Ilość', value: 'Napisz odpowiedź poniżej.' },
-                            { name: 'Metoda płatności', value: 'Napisz odpowiedź poniżej.' }
-                        )
-                        .setFooter({ text: `Zamówienie od ${member.user.tag}` });
-
-                    await ticketChannel.send({ content: `<@${member.id}>`, embeds: [embed] });
-                    await interaction.editReply({ content: 'Formularz wysłany w ticket.', ephemeral: true });
-                } catch (err) {
-                    console.error(err);
-                    await interaction.editReply({ content: 'Nie udało się wysłać formularza.', ephemeral: true });
-                }
-            }
+            await interaction.editReply({ content: `Ticket został utworzony: <#${ticketChannel.id}>`, ephemeral: true });
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: 'Nie udało się utworzyć ticketu.', ephemeral: true });
         }
+    }
+
+    // Obsługa guzika start_form - wysyłanie formularza zamówienia w embedzie
+    if (customId === 'start_form') {
+        await interaction.deferReply({ ephemeral: true }).catch(() => {});
+        try {
+            const ticketChannel = interaction.channel;
+
+            const embed = new EmbedBuilder()
+                .setTitle('Formularz zamówienia')
+                .addFields(
+                    { name: 'Jaki produkt chcesz kupić?', value: 'Napisz odpowiedź poniżej.' },
+                    { name: 'Ilość', value: 'Napisz odpowiedź poniżej.' },
+                    { name: 'Metoda płatności', value: 'Napisz odpowiedź poniżej.' }
+                )
+                .setFooter({ text: `Zamówienie od ${member.user.tag}` });
+
+            await ticketChannel.send({ content: `<@${member.id}>`, embeds: [embed] });
+            await interaction.editReply({ content: 'Formularz został wysłany w ticket.', ephemeral: true });
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: 'Nie udało się wysłać formularza.', ephemeral: true });
+                 }
+            }
+         }
     }
 };
