@@ -1,48 +1,46 @@
-const fs = require('fs');
+const fs = require('node:fs');
+const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const { REST, Routes } = require('discord.js');
-require('dotenv').config();
+const { token } = require('./config.json');
 
-// Tworzenie klienta
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Kolekcja komend
 client.commands = new Collection();
 
-// Ładowanie komend z folderu ./commands
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-const commands = [];
+// Ładowanie komend
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
+
 for (const file of commandFiles) {
-    const command = require(`./commands/${file}`);
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
     client.commands.set(command.data.name, command);
-    commands.push(command.data.toJSON());
 }
 
-// Rejestracja komend guild (natychmiast widoczne na serwerze)
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+// Ładowanie eventów
+const eventsPath = path.join(__dirname, 'events');
+const eventFiles = fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'));
 
-(async () => {
-    try {
-        console.log(`🔄 Rejestracja ${commands.length} komend na serwerze...`);
-        await rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
-            { body: commands }
-        );
-        console.log('✅ Komendy zostały zarejestrowane na serwerze.');
-    } catch (error) {
-        console.error(error);
-    }
-})();
+for (const file of eventFiles) {
+    const filePath = path.join(eventsPath, file);
+    const event = require(filePath);
+    if (event.once) client.once(event.name, (...args) => event.execute(...args));
+    else client.on(event.name, (...args) => event.execute(...args));
+}
 
-// Event ready
-client.once('ready', () => {
-    console.log(`✅ Bot gotowy! Zalogowano jako ${client.user.tag}`);
-});
-
-// Event interactionCreate
+// Obsługa komend
 client.on('interactionCreate', async interaction => {
-    require('./events/interactionCreate').execute(interaction);
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+
+    try {
+        await command.execute(interaction);
+    } catch (err) {
+        console.error(err);
+        if (!interaction.replied) await interaction.reply({ content: 'Wystąpił błąd.', ephemeral: true });
+    }
 });
 
-// Logowanie bota
-client.login(process.env.TOKEN);
+client.login(token);
