@@ -24,10 +24,10 @@ const eventsPath = path.join(__dirname, 'events');
 fs.readdirSync(eventsPath).filter(file => file.endsWith('.js')).forEach(file => {
     const event = require(`./events/${file}`);
     if(event.once){
-        client.once(event.name, (...args) => event.execute(...args, client));
-    } else {
-        client.on(event.name, (...args) => event.execute(...args, client));
-    }
+    client.once(event.name, (...args) => event.execute(...args, client));
+} else {
+    client.on(event.name, (...args) => event.execute(...args, client));
+}
 });
 
 // Connect to MongoDB
