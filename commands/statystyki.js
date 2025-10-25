@@ -1,43 +1,41 @@
+// /commands/statystyki.js
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const Review = require('../models/Review');
-const Order = require('../models/Order');
-const config = require('../config.json');
-
+const Review = require('../models/Review'); // Twój model opinii w MongoDB
 
 module.exports = {
-data: new SlashCommandBuilder().setName('statystyki').setDescription('Wyświetla statystyki opinii (admin).'),
-async execute(interaction) {
-// permission: support role or manage guild
-const isSupport = interaction.member.roles.cache.has(config.supportRoleId) || interaction.member.permissions.has('ManageGuild');
-if (!isSupport) return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
+    data: new SlashCommandBuilder()
+        .setName('statystyki')
+        .setDescription('Wyświetla statystyki wszystkich opinii'),
 
+    async execute(interaction) {
+        await interaction.deferReply({ ephemeral: false }); // Publiczna odpowiedź
 
-const total = await Review.countDocuments();
-const avg = await Review.aggregate([
-{ $group: { _id: null, waitAvg: { $avg: '$waitTime' }, qualityAvg: { $avg: '$quality' }, transAvg: { $avg: '$transaction' } } }
-]);
+        try {
+            const reviews = await Review.find({});
+            if (!reviews.length) {
+                return interaction.editReply('Brak opinii w bazie danych.');
+            }
 
+            // Oblicz średnie
+            const totalReviews = reviews.length;
+            const avgWait = (reviews.reduce((sum, r) => sum + r.waitTime, 0) / totalReviews).toFixed(2);
+            const avgQuality = (reviews.reduce((sum, r) => sum + r.quality, 0) / totalReviews).toFixed(2);
+            const avgTransaction = (reviews.reduce((sum, r) => sum + r.transaction, 0) / totalReviews).toFixed(2);
 
-const ordersCount = await Order.countDocuments({ type: 'zamowienie' });
-const complaintsCount = await Order.countDocuments({ type: 'reklamacja' });
+            const embed = new EmbedBuilder()
+                .setTitle('📊 Statystyki opinii')
+                .addFields(
+                    { name: 'Liczba opinii', value: `${totalReviews}`, inline: true },
+                    { name: 'Średni czas oczekiwania', value: `${avgWait} ★`, inline: true },
+                    { name: 'Średnia jakość produktu', value: `${avgQuality} ★`, inline: true },
+                    { name: 'Średni przebieg transakcji', value: `${avgTransaction} ★`, inline: true }
+                )
+                .setTimestamp();
 
-
-const embed = new EmbedBuilder().setTitle('Statystyki opinii').addFields(
-{ name: 'Łącznie opinii', value: String(total), inline: true },
-{ name: 'Zamówienia', value: String(ordersCount), inline: true },
-{ name: 'Reklamacje', value: String(complaintsCount), inline: true }
-);
-
-
-if (avg && avg.length > 0) {
-embed.addFields(
-{ name: 'Średnia — Czas oczekiwania', value: (avg[0].waitAvg || 0).toFixed(2), inline: true },
-{ name: 'Średnia — Jakość', value: (avg[0].qualityAvg || 0).toFixed(2), inline: true },
-{ name: 'Średnia — Przebieg transakcji', value: (avg[0].transAvg || 0).toFixed(2), inline: true }
-);
-}
-
-
-await interaction.reply({ embeds: [embed], ephemeral: true });
-}
+            await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: '❌ Wystąpił błąd podczas generowania statystyk.' });
+        }
+    },
 };
