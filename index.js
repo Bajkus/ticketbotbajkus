@@ -35,6 +35,7 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
 .then(() => console.log(chalk.green('✅ MongoDB connected!')))
 .catch(err => console.log(chalk.red('❌ MongoDB connection error:'), err));
 
+
 // Login
 client.login(process.env.TOKEN)
 .then(() => console.log(chalk.green(`✅ Bot logged in as ${client.user.tag}`)))
