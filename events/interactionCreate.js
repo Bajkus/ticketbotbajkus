@@ -9,25 +9,44 @@ module.exports = {
         if (interaction.isButton()) {
             const guild = interaction.guild;
             const member = interaction.member;
-            const category = guild.channels.cache.find(c => c.name === 'Ticket Bot' && c.type === 4);
-            const ticketName = `${interaction.customId}-${member.user.username}`.toLowerCase();
 
-            // Tworzenie kanału ticketowego
-            const channel = await guild.channels.create({
-                name: ticketName,
-                type: 0, // tekstowy
-                parent: category?.id || null,
-                permissionOverwrites: [
-                    { id: guild.roles.everyone.id, deny: ['ViewChannel'] },
-                    { id: member.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-                    { id: guild.members.me.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-                ],
-            });
-
+            // Panel zamówienie
             if (interaction.customId === 'panel_zamowienie') {
-                // Otwieramy modal zamówienia
+                const ticketChannel = await guild.channels.create({
+                    name: `ticket-${member.user.username}`,
+                    type: 0,
+                    permissionOverwrites: [
+                        { id: guild.roles.everyone.id, deny: ['ViewChannel'] },
+                        { id: member.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                        { id: guild.members.me.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                    ],
+                });
+
+                const embed = new EmbedBuilder()
+                    .setTitle('Zamówienie')
+                    .setDescription('Kliknij przycisk poniżej, aby wypełnić formularz zamówienia.');
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`modal_zamowienie_${ticketChannel.id}`)
+                            .setLabel('Wypełnij zamówienie')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+
+                await ticketChannel.send({ embeds: [embed], components: [row] });
+                await interaction.reply({ content: 'Kanał ticketowy utworzony!', flags: 64 });
+            }
+
+            // Kliknięcie przycisku w ticketowym kanale → pokazanie modala
+            if (interaction.customId.startsWith('modal_zamowienie_')) {
+                const channelId = interaction.customId.split('_')[2];
+                if (interaction.channel.id !== channelId) {
+                    return interaction.reply({ content: 'Ten przycisk nie jest dla tego kanału.', flags: 64 });
+                }
+
                 const modal = new ModalBuilder()
-                    .setCustomId('zamowienie_modal')
+                    .setCustomId(`zamowienie_modal_${channelId}`)
                     .setTitle('Formularz zamówienia');
 
                 const produktInput = new TextInputBuilder()
@@ -57,30 +76,80 @@ module.exports = {
                 await interaction.showModal(modal);
             }
 
-            if (interaction.customId === 'panel_reklamacja') {
-                await interaction.reply({ content: 'Tworzę ticket reklamacji...', flags: 64 });
-                await channel.send('Kanał reklamacji utworzony. Moderator wkrótce się skontaktuje.');
+            // ---------- PRZYCISK OPINII z /zapytajopinia ----------
+            if (interaction.customId.startsWith('opinia_')) {
+                const userId = interaction.customId.split('_')[1];
+                if (interaction.user.id !== userId) {
+                    return interaction.reply({ content: 'To nie jest Twoja prośba o opinię.', flags: 64 });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('opinia_modal')
+                    .setTitle('Formularz opinii');
+
+                const waitInput = new TextInputBuilder()
+                    .setCustomId('wait')
+                    .setLabel('Czas oczekiwania (1-5)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                const qualityInput = new TextInputBuilder()
+                    .setCustomId('quality')
+                    .setLabel('Jakość produktu (1-5)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                const transactionInput = new TextInputBuilder()
+                    .setCustomId('transaction')
+                    .setLabel('Przebieg transakcji (1-5)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                const commentInput = new TextInputBuilder()
+                    .setCustomId('comment')
+                    .setLabel('Dodatkowy komentarz (opcjonalnie)')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(false);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(waitInput),
+                    new ActionRowBuilder().addComponents(qualityInput),
+                    new ActionRowBuilder().addComponents(transactionInput),
+                    new ActionRowBuilder().addComponents(commentInput)
+                );
+
+                await interaction.showModal(modal);
             }
         }
 
         // ---------- MODALE ----------
         if (interaction.isModalSubmit()) {
-            const channel = interaction.channel;
-            const member = interaction.member;
+            let ticketChannel;
 
-            if (interaction.customId === 'zamowienie_modal') {
+            // Zamówienie
+            if (interaction.customId.startsWith('zamowienie_modal_')) {
+                const channelId = interaction.customId.split('_')[2];
+                ticketChannel = interaction.guild.channels.cache.get(channelId);
+                if (!ticketChannel?.isTextBased()) return;
+
                 const produkt = interaction.fields.getTextInputValue('produkt');
                 const ilosc = interaction.fields.getTextInputValue('ilosc');
                 const platnosc = interaction.fields.getTextInputValue('platnosc');
 
-                await channel.send(`✅ Zamówienie przyjęte:
-**Produkt:** ${produkt}
-**Ilość:** ${ilosc}
-**Płatność:** ${platnosc}`);
+                const embed = new EmbedBuilder()
+                    .setTitle('Nowe zamówienie')
+                    .addFields(
+                        { name: 'Produkt', value: produkt, inline: true },
+                        { name: 'Ilość', value: ilosc, inline: true },
+                        { name: 'Metoda płatności', value: platnosc, inline: true }
+                    )
+                    .setFooter({ text: `Użytkownik: ${interaction.user.tag}` })
+                    .setTimestamp();
 
-                await interaction.reply({ content: 'Formularz zamówienia został zapisany.', flags: 64 });
+                await ticketChannel.send({ embeds: [embed] });
+                await interaction.reply({ content: 'Zamówienie zapisane!', flags: 64 });
 
-                // Teraz modal opinii
+                // Pokazujemy modal opinii po zamówieniu
                 const opinionModal = new ModalBuilder()
                     .setCustomId('opinia_modal')
                     .setTitle('Formularz opinii');
@@ -119,6 +188,7 @@ module.exports = {
                 await interaction.showModal(opinionModal);
             }
 
+            // Opinie
             if (interaction.customId === 'opinia_modal') {
                 const wait = parseInt(interaction.fields.getTextInputValue('wait')) || 0;
                 const quality = parseInt(interaction.fields.getTextInputValue('quality')) || 0;
@@ -126,10 +196,9 @@ module.exports = {
                 const commentRaw = interaction.fields.getTextInputValue('comment');
                 const comment = commentRaw === '-' ? '' : commentRaw;
 
-                // Zapis opinii do MongoDB
                 const review = new Review({
-                    userId: member.id,
-                    userTag: member.user.tag,
+                    userId: interaction.user.id,
+                    userTag: interaction.user.tag,
                     waitTime: wait,
                     quality,
                     transaction,
@@ -137,39 +206,26 @@ module.exports = {
                 });
                 await review.save();
 
-                // Wysłanie embedu do kanału opinii
                 const reviewChannel = interaction.guild.channels.cache.find(c => c.name === 'opinie');
                 if (reviewChannel?.isTextBased()) {
                     const embed = new EmbedBuilder()
                         .setTitle('Nowa opinia')
                         .setDescription(comment || 'Brak komentarza')
                         .addFields(
-                            { name: 'Użytkownik', value: `<@${member.id}>`, inline: true },
+                            { name: 'Użytkownik', value: `<@${interaction.user.id}>`, inline: true },
                             { name: 'Czas oczekiwania', value: `${'★'.repeat(wait)} (${wait}/5)`, inline: true },
                             { name: 'Jakość produktu', value: `${'★'.repeat(quality)} (${quality}/5)`, inline: true },
                             { name: 'Przebieg transakcji', value: `${'★'.repeat(transaction)} (${transaction}/5)`, inline: true }
                         )
-                        .setFooter({ text: `Opinia od ${member.user.tag}` })
+                        .setFooter({ text: `Opinia od ${interaction.user.tag}` })
                         .setTimestamp();
                     await reviewChannel.send({ embeds: [embed] });
                 }
 
                 await interaction.reply({ content: 'Dziękujemy za opinię! Ticket zostanie zamknięty.', flags: 64 });
-                setTimeout(() => channel?.delete().catch(() => {}), 5000);
+
+                if (ticketChannel) setTimeout(() => ticketChannel.delete().catch(() => {}), 5000);
             }
         }
-
-        // ---------- KOMENDY SLASH ----------
-        if (interaction.isChatInputCommand()) {
-            const command = interaction.client.commands.get(interaction.commandName);
-            if (!command) return;
-
-            try {
-                await command.execute(interaction);
-            } catch (e) {
-                console.error(e);
-                await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', flags: 64 });
-            }
-        }
-    },
+    }
 };
