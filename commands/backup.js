@@ -1,7 +1,13 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const Review = require('../models/Review');
-const config = require('../config.json');
+const { SlashCommandBuilder } = require('discord.js');
 
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('ping')
+        .setDescription('Sprawdza opóźnienie bota'),
+    async execute(interaction) {
+        await interaction.reply('Pong!');
+    },
+};
 
 module.exports = {
 data: new SlashCommandBuilder().setName('backup').setDescription('Wysyła wszystkie opinie w formie embedów (admin).'),
