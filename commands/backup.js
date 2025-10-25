@@ -1,3 +1,4 @@
+// /commands/backup.js
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const Review = require('../models/Review'); // Twój model opinii w MongoDB
 
@@ -5,9 +6,9 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('backup')
         .setDescription('Wyślij wszystkie opinie w embdedach'),
-    
+
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: true }); // Wiadomość chwilowa
 
         try {
             const reviews = await Review.find({});
