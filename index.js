@@ -1,1 +1,0 @@
-// index.js - pełny kod bota będzie wklejony tutaj
