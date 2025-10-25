@@ -1,7 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');
+
+// Pobieramy token z ENV
+const token = process.env.TOKEN;
+if (!token) {
+    console.error('❌ Brak tokena! Dodaj zmienną środowiskową TOKEN w Railway.');
+    process.exit(1);
+}
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -38,9 +44,14 @@ client.on('interactionCreate', async interaction => {
     try {
         await command.execute(interaction);
     } catch (err) {
-        console.error(err);
+        console.error('Błąd przy komendzie:', err);
         if (!interaction.replied) await interaction.reply({ content: 'Wystąpił błąd.', ephemeral: true });
     }
 });
 
-client.login(token);
+// Logowanie bota
+client.login(token).then(() => {
+    console.log(`✅ Bot zalogowany jako ${client.user.tag}`);
+}).catch(err => {
+    console.error('❌ Nie udało się zalogować bota:', err);
+});
