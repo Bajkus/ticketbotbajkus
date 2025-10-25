@@ -7,11 +7,12 @@ module.exports = {
         .setDescription('Tworzy panel ticketowy (admin).'),
 
     async execute(interaction) {
+        // Sprawdzenie uprawnień
         if (!interaction.member.permissions.has('ManageGuild')) {
             return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
         }
 
-        // Od razu dajemy Discordowi znać, że odpowiedź nadejdzie
+        // Od razu informujemy Discord, że odpowiedź nadejdzie
         await interaction.deferReply({ ephemeral: true });
 
         try {
@@ -19,21 +20,21 @@ module.exports = {
                 .setTitle('Panel ticketowy')
                 .setDescription('Wybierz typ ticketu:');
 
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('panel_zamowienie')
-                        .setLabel('🛒 Zamówienie')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId('panel_reklamacja')
-                        .setLabel('⚠️ Reklamacja')
-                        .setStyle(ButtonStyle.Secondary)
-                );
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('panel_zamowienie')
+                    .setLabel('🛒 Zamówienie')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('panel_reklamacja')
+                    .setLabel('⚠️ Reklamacja')
+                    .setStyle(ButtonStyle.Secondary)
+            );
 
+            // Wysyłamy panel w aktualnym kanale
             await interaction.channel.send({ embeds: [embed], components: [row] });
 
-            // Finalna odpowiedź dla użytkownika
+            // Edytujemy odpowiedź dla użytkownika
             await interaction.editReply({ content: 'Panel został utworzony!' });
         } catch (err) {
             console.error(err);
