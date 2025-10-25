@@ -10,10 +10,9 @@ module.exports = {
             return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
         }
 
-        // ✅ Od razu odpowiadamy, żeby Discord nie wyrzucił błędu
+        // Od razu odpowiadamy, żeby uniknąć "did not respond"
         await interaction.reply({ content: 'Tworzę panel ticketowy...', ephemeral: true });
 
-        // Tworzymy embed i przyciski
         const embed = new EmbedBuilder()
             .setTitle('Panel ticketowy')
             .setDescription('Wybierz typ ticketu:');
@@ -29,10 +28,8 @@ module.exports = {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-        // Wysyłamy embed do kanału
         try {
             await interaction.channel.send({ embeds: [embed], components: [row] });
-            // Edytujemy odpowiedź ephemeral
             await interaction.editReply({ content: 'Panel został utworzony!' });
         } catch (err) {
             console.error('Błąd wysyłania panelu:', err);
