@@ -5,7 +5,7 @@ module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction) {
 
-        // ---------- PRZYCISKI PANELU ----------
+        // -------------------- PRZYCISKI --------------------
         if (interaction.isButton()) {
             const guild = interaction.guild;
             const member = interaction.member;
@@ -35,15 +35,14 @@ module.exports = {
                     );
 
                 await ticketChannel.send({ embeds: [embed], components: [row] });
-                await interaction.reply({ content: 'Kanał ticketowy utworzony!', flags: 64 });
+                return interaction.reply({ content: 'Kanał ticketowy utworzony!', ephemeral: true });
             }
 
-            // Kliknięcie przycisku w ticketowym kanale → pokazanie modala
+            // Kliknięcie przycisku w ticketowym kanale → pokazanie modala zamówienia
             if (interaction.customId.startsWith('modal_zamowienie_')) {
                 const channelId = interaction.customId.split('_')[2];
-                if (interaction.channel.id !== channelId) {
-                    return interaction.reply({ content: 'Ten przycisk nie jest dla tego kanału.', flags: 64 });
-                }
+                if (interaction.channel.id !== channelId)
+                    return interaction.reply({ content: 'Ten przycisk nie jest dla tego kanału.', ephemeral: true });
 
                 const modal = new ModalBuilder()
                     .setCustomId(`zamowienie_modal_${channelId}`)
@@ -73,15 +72,14 @@ module.exports = {
                     new ActionRowBuilder().addComponents(platnoscInput)
                 );
 
-                await interaction.showModal(modal);
+                return interaction.showModal(modal);
             }
 
-            // ---------- PRZYCISK OPINII z /zapytajopinia ----------
+            // Przycisk opinii z /zapytajopinia
             if (interaction.customId.startsWith('opinia_')) {
                 const userId = interaction.customId.split('_')[1];
-                if (interaction.user.id !== userId) {
-                    return interaction.reply({ content: 'To nie jest Twoja prośba o opinię.', flags: 64 });
-                }
+                if (interaction.user.id !== userId)
+                    return interaction.reply({ content: 'To nie jest Twoja prośba o opinię.', ephemeral: true });
 
                 const modal = new ModalBuilder()
                     .setCustomId('opinia_modal')
@@ -118,11 +116,11 @@ module.exports = {
                     new ActionRowBuilder().addComponents(commentInput)
                 );
 
-                await interaction.showModal(modal);
+                return interaction.showModal(modal);
             }
         }
 
-        // ---------- MODALE ----------
+        // -------------------- MODALE --------------------
         if (interaction.isModalSubmit()) {
             let ticketChannel;
 
@@ -147,7 +145,7 @@ module.exports = {
                     .setTimestamp();
 
                 await ticketChannel.send({ embeds: [embed] });
-                await interaction.reply({ content: 'Zamówienie zapisane!', flags: 64 });
+                await interaction.reply({ content: 'Zamówienie zapisane!', ephemeral: true });
 
                 // Pokazujemy modal opinii po zamówieniu
                 const opinionModal = new ModalBuilder()
@@ -185,7 +183,7 @@ module.exports = {
                     new ActionRowBuilder().addComponents(commentInput)
                 );
 
-                await interaction.showModal(opinionModal);
+                return interaction.showModal(opinionModal);
             }
 
             // Opinie
@@ -222,7 +220,7 @@ module.exports = {
                     await reviewChannel.send({ embeds: [embed] });
                 }
 
-                await interaction.reply({ content: 'Dziękujemy za opinię! Ticket zostanie zamknięty.', flags: 64 });
+                await interaction.reply({ content: 'Dziękujemy za opinię! Ticket zostanie zamknięty.', ephemeral: true });
 
                 if (ticketChannel) setTimeout(() => ticketChannel.delete().catch(() => {}), 5000);
             }
