@@ -11,6 +11,7 @@ module.exports = {
             if (interaction.isButton()) {
                 const { guild, member, customId } = interaction;
 
+                // Tworzenie ticketu
                 if (customId === 'panel_zamowienie' || customId === 'panel_reklamacja') {
                     await interaction.deferUpdate();
 
@@ -29,21 +30,26 @@ module.exports = {
 
                     if (!ticketChannel) return interaction.followUp({ content: 'Nie udało się utworzyć ticketu.', ephemeral: true });
 
+                    // Embed i przyciski w tickecie
                     const embed = new EmbedBuilder()
                         .setTitle(`Ticket: ${customId === 'panel_zamowienie' ? 'Zamówienie' : 'Reklamacja'}`)
-                        .setDescription('Kliknij przycisk poniżej, aby wypełnić formularz.');
+                        .setDescription('Kliknij przycisk, aby wypełnić formularz lub dodać opinię.');
 
                     const row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('ticket_formularz')
                             .setLabel('Wypełnij formularz')
-                            .setStyle(ButtonStyle.Primary)
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId('ticket_opinia')
+                            .setLabel('Dodaj opinię')
+                            .setStyle(ButtonStyle.Success)
                     );
 
                     await ticketChannel.send({ embeds: [embed], components: [row] });
                 }
 
-                // --- Guzik w tickecie do wypełnienia formularza ---
+                // --- Guzik w tickecie do wypełnienia formularza zamówienia ---
                 if (customId === 'ticket_formularz') {
                     await interaction.deferUpdate();
 
@@ -69,6 +75,44 @@ module.exports = {
                                 .setCustomId('platnosc')
                                 .setLabel('Metoda płatności')
                                 .setStyle(TextInputStyle.Short)
+                        )
+                    );
+
+                    await interaction.showModal(modal);
+                }
+
+                // --- Guzik w tickecie do opinii ---
+                if (customId === 'ticket_opinia') {
+                    await interaction.deferUpdate();
+
+                    const modal = new ModalBuilder()
+                        .setCustomId('modal_opinia')
+                        .setTitle('Formularz opinii');
+
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('czas')
+                                .setLabel('Czas oczekiwania (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('jakosc')
+                                .setLabel('Jakość produktu (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('przebieg')
+                                .setLabel('Przebieg transakcji (1-5)')
+                                .setStyle(TextInputStyle.Short)
+                        ),
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('komentarz')
+                                .setLabel('Dodatkowy komentarz (opcjonalnie)')
+                                .setStyle(TextInputStyle.Paragraph)
                         )
                     );
 
@@ -104,7 +148,6 @@ module.exports = {
                     const transaction = parseInt(interaction.fields.getTextInputValue('przebieg')) || 0;
                     const comment = interaction.fields.getTextInputValue('komentarz') || '';
 
-                    // Zapis do MongoDB
                     const review = new Review({
                         userId: interaction.user.id,
                         userTag: interaction.user.tag,
@@ -115,7 +158,6 @@ module.exports = {
                     });
                     await review.save().catch(console.error);
 
-                    // Embed do kanału opinii
                     const embed = new EmbedBuilder()
                         .setTitle('Nowa opinia')
                         .addFields(
