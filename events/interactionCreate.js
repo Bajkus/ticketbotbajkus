@@ -5,7 +5,7 @@ module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction) {
 
-        // ---------- OBSŁUGA PRZYCISKÓW PANELU ----------
+        // ---------- PRZYCISKI PANELU ----------
         if (interaction.isButton()) {
             const guild = interaction.guild;
             const member = interaction.member;
@@ -24,12 +24,8 @@ module.exports = {
                 ],
             });
 
-            await channel.send(`${member}, Twój ticket został utworzony!`);
-
-            // ---------- TICKET ZAMÓWIENIA MODAL ----------
             if (interaction.customId === 'panel_zamowienie') {
-                await interaction.reply({ content: 'Otwieram formularz zamówienia...', ephemeral: true });
-
+                // Otwieramy modal zamówienia
                 const modal = new ModalBuilder()
                     .setCustomId('zamowienie_modal')
                     .setTitle('Formularz zamówienia');
@@ -61,14 +57,13 @@ module.exports = {
                 await interaction.showModal(modal);
             }
 
-            // ---------- TICKET REKLAMACJI ----------
             if (interaction.customId === 'panel_reklamacja') {
-                await interaction.reply({ content: 'Tworzę ticket reklamacji...', ephemeral: true });
+                await interaction.reply({ content: 'Tworzę ticket reklamacji...', flags: 64 });
                 await channel.send('Kanał reklamacji utworzony. Moderator wkrótce się skontaktuje.');
             }
         }
 
-        // ---------- OBSŁUGA MODALI ----------
+        // ---------- MODALE ----------
         if (interaction.isModalSubmit()) {
             const channel = interaction.channel;
             const member = interaction.member;
@@ -83,9 +78,9 @@ module.exports = {
 **Ilość:** ${ilosc}
 **Płatność:** ${platnosc}`);
 
-                await interaction.reply({ content: 'Dziękujemy! Formularz zamówienia został zapisany.', ephemeral: true });
+                await interaction.reply({ content: 'Formularz zamówienia został zapisany.', flags: 64 });
 
-                // Teraz otwieramy kolejny modal dla opinii
+                // Teraz modal opinii
                 const opinionModal = new ModalBuilder()
                     .setCustomId('opinia_modal')
                     .setTitle('Formularz opinii');
@@ -121,7 +116,6 @@ module.exports = {
                     new ActionRowBuilder().addComponents(commentInput)
                 );
 
-                await member.send({ content: 'Proszę wypełnić formularz opinii:', components: [] }); // Możesz wyświetlić modal w DM
                 await interaction.showModal(opinionModal);
             }
 
@@ -145,7 +139,7 @@ module.exports = {
 
                 // Wysłanie embedu do kanału opinii
                 const reviewChannel = interaction.guild.channels.cache.find(c => c.name === 'opinie');
-                if (reviewChannel) {
+                if (reviewChannel?.isTextBased()) {
                     const embed = new EmbedBuilder()
                         .setTitle('Nowa opinia')
                         .setDescription(comment || 'Brak komentarza')
@@ -160,12 +154,12 @@ module.exports = {
                     await reviewChannel.send({ embeds: [embed] });
                 }
 
-                await interaction.reply({ content: 'Dziękujemy za opinię! Ticket zostanie zamknięty.', ephemeral: true });
-                setTimeout(() => channel.delete().catch(() => {}), 5000);
+                await interaction.reply({ content: 'Dziękujemy za opinię! Ticket zostanie zamknięty.', flags: 64 });
+                setTimeout(() => channel?.delete().catch(() => {}), 5000);
             }
         }
 
-        // ---------- OBSŁUGA KOMEND SLASH ----------
+        // ---------- KOMENDY SLASH ----------
         if (interaction.isChatInputCommand()) {
             const command = interaction.client.commands.get(interaction.commandName);
             if (!command) return;
@@ -174,7 +168,7 @@ module.exports = {
                 await command.execute(interaction);
             } catch (e) {
                 console.error(e);
-                await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', ephemeral: true });
+                await interaction.reply({ content: '❌ Wystąpił błąd podczas wykonywania komendy.', flags: 64 });
             }
         }
     },
