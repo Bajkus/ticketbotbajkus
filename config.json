@@ -1,8 +1,9 @@
 {
-  "token": "TWÓJ_TOKEN_BOTA",
-  "supportRoleId": "SUPPORT_ROLE_ID",
-  "reviewChannelId": "REVIEW_CHANNEL_ID",
-  "ticketCategoryId": "TICKET_CATEGORY_ID",
-  "logChannelId": "OPTIONAL_LOG_CHANNEL_ID",
+  "token": "TWÓJ_TOKEN_TUTAJ",
+  "mongoURI": "TWÓJ_MONGO_URI_TUTAJ",
+  "supportRoleId": "ID_ROLI_SUPPORT",
+  "reviewChannelId": "ID_KANAŁU_OPINII",
+  "ticketCategoryId": "ID_KATEGORII_TICKETÓW",
+  "logChannelId": "ID_LOGÓW_LUB_ZOSTAW_PUSTE",
   "ticketPrefix": "ticket-"
 }
