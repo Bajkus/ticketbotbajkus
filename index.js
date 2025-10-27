@@ -52,8 +52,9 @@ client.on('interactionCreate', async interaction => {
 });
 
 // Logowanie bota
-client.login(token).then(() => {
-    console.log(`✅ Bot zalogowany jako ${client.user.tag}`);
-}).catch(err => {
-    console.error('❌ Nie udało się zalogować bota:', err);
+client.once('clientReady', () => {
+  console.log(`✅ Bot gotowy! Zalogowano jako ${client.user.tag}`);
+})client.login(token).catch(err => {
+  console.error('❌ Błąd logowania:', err);
+  process.exit(1);
 });
