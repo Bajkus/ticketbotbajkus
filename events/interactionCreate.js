@@ -61,7 +61,6 @@ module.exports = {
           .setPlaceholder('Np. BLIK, PayPal, Przelew')
           .setRequired(true);
 
-
         modal.addComponents(
           new ActionRowBuilder().addComponents(product),
           new ActionRowBuilder().addComponents(quantity),
