@@ -4,16 +4,14 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
+  ActionRowBuilder
 } = require('discord.js');
 const config = require('../config.json');
 
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    // ===== Komendy slash =====
+    // --- Komendy slash ---
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -30,75 +28,50 @@ module.exports = {
       return;
     }
 
-    // ===== Kliknięcie przycisku (Zamówienie / Reklamacja) =====
+    // --- Główne przyciski (zamówienie / reklamacja) ---
     if (interaction.isButton()) {
       const { customId, guild, user } = interaction;
 
-      // tworzenie ticketu przez formularz
-      if (['create_ticket_order', 'create_ticket_complaint'].includes(customId)) {
-        const modal = new ModalBuilder()
-          .setCustomId(`modal_${customId}`)
-          .setTitle(customId === 'create_ticket_order' ? '🛒 Formularz zamówienia' : '⚠️ Formularz reklamacji');
+      if (!['create_ticket_order', 'create_ticket_complaint'].includes(customId)) return;
 
-        const product = new TextInputBuilder()
-          .setCustomId('product')
-          .setLabel('Produkt')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('Np. Koszulka #123')
-          .setRequired(true);
+      // tworzymy modal
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_${customId}`)
+        .setTitle(customId === 'create_ticket_order' ? '🛒 Formularz zamówienia' : '⚠️ Formularz reklamacji');
 
-        const quantity = new TextInputBuilder()
-          .setCustomId('quantity')
-          .setLabel('Ilość')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('Np. 2 sztuki')
-          .setRequired(true);
+      const productInput = new TextInputBuilder()
+        .setCustomId('product')
+        .setLabel('Produkt')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Wpisz nazwę produktu...')
+        .setRequired(true);
 
-        const payment = new TextInputBuilder()
-          .setCustomId('payment')
-          .setLabel('Metoda płatności')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('Np. BLIK, PayPal, Przelew')
-          .setRequired(true);
+      const quantityInput = new TextInputBuilder()
+        .setCustomId('quantity')
+        .setLabel('Ilość')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Np. 2 sztuki')
+        .setRequired(true);
 
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(product),
-          new ActionRowBuilder().addComponents(quantity),
-          new ActionRowBuilder().addComponents(payment),
-          new ActionRowBuilder().addComponents(notes)
-        );
+      const paymentInput = new TextInputBuilder()
+        .setCustomId('payment')
+        .setLabel('Metoda płatności')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Np. Blik, przelew, PayPal')
+        .setRequired(true);
 
-        await interaction.showModal(modal);
-        return;
-      }
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(productInput),
+        new ActionRowBuilder().addComponents(quantityInput),
+        new ActionRowBuilder().addComponents(paymentInput),
+        new ActionRowBuilder().addComponents(notesInput)
+      );
 
-      // zamykanie ticketa
-      if (customId === 'close_ticket') {
-        await interaction.reply({
-          content: '🗑️ Czy na pewno chcesz zamknąć ten ticket? Kliknij poniżej, aby potwierdzić.',
-          components: [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId('confirm_close_ticket')
-                .setLabel('✅ Tak, zamknij')
-                .setStyle(ButtonStyle.Danger)
-            )
-          ],
-          ephemeral: true
-        });
-        return;
-      }
-
-      if (customId === 'confirm_close_ticket') {
-        await interaction.channel.send('🔒 Ticket zostanie zamknięty za 3 sekundy...');
-        setTimeout(() => {
-          interaction.channel.delete().catch(() => null);
-        }, 3000);
-        return;
-      }
+      await interaction.showModal(modal);
+      return;
     }
 
-    // ===== Wysłanie formularza (modal) =====
+    // --- Po wysłaniu modala ---
     if (interaction.isModalSubmit()) {
       const { customId, guild, user } = interaction;
       if (!customId.startsWith('modal_')) return;
@@ -109,7 +82,7 @@ module.exports = {
       const payment = interaction.fields.getTextInputValue('payment');
       const notes = interaction.fields.getTextInputValue('notes') || 'Brak';
 
-      // sprawdzamy czy user już ma ticket
+      // Tworzymy kanał ticketowy
       const existing = guild.channels.cache.find(c => c.name === `${config.ticketPrefix}${user.username}`);
       if (existing)
         return interaction.reply({
@@ -117,7 +90,6 @@ module.exports = {
           ephemeral: true
         });
 
-      // tworzymy kanał
       const ticketChannel = await guild.channels.create({
         name: `${config.ticketPrefix}${user.username}`,
         type: ChannelType.GuildText,
@@ -129,7 +101,7 @@ module.exports = {
         ]
       });
 
-      // embed podsumowania
+      // Embed z danymi formularza
       const embed = new EmbedBuilder()
         .setTitle(`📩 Nowe ${type}`)
         .setColor(customId === 'modal_create_ticket_order' ? '#00AAFF' : '#FFAA00')
@@ -142,18 +114,7 @@ module.exports = {
         .setFooter({ text: `Użytkownik: ${user.tag}`, iconURL: user.displayAvatarURL() })
         .setTimestamp();
 
-      const closeButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('close_ticket')
-          .setLabel('🔒 Zamknij ticket')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      await ticketChannel.send({
-        content: `<@${user.id}> | <@&${config.supportRoleId}>`,
-        embeds: [embed],
-        components: [closeButton]
-      });
+      await ticketChannel.send({ content: `<@${user.id}>`, embeds: [embed] });
 
       await interaction.reply({
         content: `✅ Utworzono ticket: ${ticketChannel}`,
