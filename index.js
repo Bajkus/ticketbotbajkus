@@ -1,60 +1,54 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
+const config = require('./config.json');
 
-// Pobieramy token z ENV
-const token = process.env.TOKEN;
-if (!token) {
-  const token = process.env.TOKEN || config.token;
-if (!token) {
-  console.error('❌ Brak tokena! Ustaw process.env.TOKEN lub dodaj do config.json.');
-  process.exit(1);
-}
-
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});
 
 client.commands = new Collection();
 
-// Ładowanie komend
+// ✅ Połączenie z MongoDB
+mongoose.connect(config.mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('✅ Połączono z MongoDB!'))
+  .catch(err => console.error('❌ Błąd połączenia z MongoDB:', err));
+
+// 📁 Ładowanie komend
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
-
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    client.commands.set(command.data.name, command);
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
 }
 
-// Ładowanie eventów
+// 📁 Ładowanie eventów
 const eventsPath = path.join(__dirname, 'events');
-const eventFiles = fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'));
-
+const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 for (const file of eventFiles) {
-    const filePath = path.join(eventsPath, file);
-    const event = require(filePath);
-    if (event.once) client.once(event.name, (...args) => event.execute(...args));
-    else client.on(event.name, (...args) => event.execute(...args));
+  const event = require(`./events/${file}`);
+  if (event.once) {
+    client.once(event.name, (...args) => event.execute(...args, client));
+  } else {
+    client.on(event.name, (...args) => event.execute(...args, client));
+  }
 }
 
-// Obsługa komend
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    try {
-        await command.execute(interaction);
-    } catch (err) {
-        console.error('Błąd przy komendzie:', err);
-        if (!interaction.replied) await interaction.reply({ content: 'Wystąpił błąd.', ephemeral: true });
-    }
-});
-
-// Logowanie bota
-client.once('clientReady', () => {
-  console.log(`✅ Bot gotowy! Zalogowano jako ${client.user.tag}`);
-})client.login(token).catch(err => {
-  console.error('❌ Błąd logowania:', err);
+// ✅ Logowanie
+const token = process.env.TOKEN || config.token;
+if (!token) {
+  console.error('❌ Brak tokena! Dodaj go do config.json lub zmiennej środowiskowej TOKEN.');
   process.exit(1);
+}
+
+client.login(token).then(() => {
+  console.log('✅ Bot pomyślnie zalogowany!');
+}).catch(err => {
+  console.error('❌ Błąd przy logowaniu:', err);
 });
