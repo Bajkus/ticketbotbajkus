@@ -5,8 +5,10 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 // Pobieramy token z ENV
 const token = process.env.TOKEN;
 if (!token) {
-    console.error('❌ Brak tokena! Dodaj zmienną środowiskową TOKEN w Railway.');
-    process.exit(1);
+  const token = process.env.TOKEN || config.token;
+if (!token) {
+  console.error('❌ Brak tokena! Ustaw process.env.TOKEN lub dodaj do config.json.');
+  process.exit(1);
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
