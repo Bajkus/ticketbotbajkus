@@ -11,7 +11,7 @@ const config = require('../config.json');
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    // Komendy slash
+    // --- Komendy slash ---
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -20,82 +20,113 @@ module.exports = {
       } catch (err) {
         console.error(err);
         if (!interaction.replied)
-          await interaction.reply({ content: '❌ Wystąpił błąd przy wykonywaniu komendy.', ephemeral: true });
+          await interaction.reply({
+            content: '❌ Wystąpił błąd przy wykonywaniu komendy.',
+            ephemeral: true
+          });
       }
+      return;
     }
 
-    // Obsługa przycisków
+    // --- Główne przyciski (zamówienie / reklamacja) ---
     if (interaction.isButton()) {
-      await interaction.deferReply({ ephemeral: true });
+      const { customId, guild, user } = interaction;
 
-      let ticketType = 'ticket';
-      if (interaction.customId === 'create_ticket_order') ticketType = 'zamowienie';
-      if (interaction.customId === 'create_ticket_complaint') ticketType = 'reklamacja';
+      if (!['create_ticket_order', 'create_ticket_complaint'].includes(customId)) return;
 
-      const existing = interaction.guild.channels.cache.find(c => c.name === `${config.ticketPrefix}${interaction.user.username}`);
+      // tworzymy modal
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_${customId}`)
+        .setTitle(customId === 'create_ticket_order' ? '🛒 Formularz zamówienia' : '⚠️ Formularz reklamacji');
+
+      const productInput = new TextInputBuilder()
+        .setCustomId('product')
+        .setLabel('Produkt')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Wpisz nazwę produktu...')
+        .setRequired(true);
+
+      const quantityInput = new TextInputBuilder()
+        .setCustomId('quantity')
+        .setLabel('Ilość')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Np. 2 sztuki')
+        .setRequired(true);
+
+      const paymentInput = new TextInputBuilder()
+        .setCustomId('payment')
+        .setLabel('Metoda płatności')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Np. Blik, przelew, PayPal')
+        .setRequired(true);
+
+      const notesInput = new TextInputBuilder()
+        .setCustomId('notes')
+        .setLabel('Dodatkowe informacje')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Np. adres wysyłki, uwagi, rozmiar...')
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(productInput),
+        new ActionRowBuilder().addComponents(quantityInput),
+        new ActionRowBuilder().addComponents(paymentInput),
+        new ActionRowBuilder().addComponents(notesInput)
+      );
+
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // --- Po wysłaniu modala ---
+    if (interaction.isModalSubmit()) {
+      const { customId, guild, user } = interaction;
+      if (!customId.startsWith('modal_')) return;
+
+      const type = customId === 'modal_create_ticket_order' ? 'zamówienie' : 'reklamację';
+      const product = interaction.fields.getTextInputValue('product');
+      const quantity = interaction.fields.getTextInputValue('quantity');
+      const payment = interaction.fields.getTextInputValue('payment');
+      const notes = interaction.fields.getTextInputValue('notes') || 'Brak';
+
+      // Tworzymy kanał ticketowy
+      const existing = guild.channels.cache.find(c => c.name === `${config.ticketPrefix}${user.username}`);
       if (existing)
-        return interaction.editReply({ content: `❌ Masz już otwarty ticket: ${existing}.` });
+        return interaction.reply({
+          content: `❌ Masz już otwarty ticket: ${existing}`,
+          ephemeral: true
+        });
 
-      const ticketChannel = await interaction.guild.channels.create({
-        name: `${config.ticketPrefix}${interaction.user.username}`,
+      const ticketChannel = await guild.channels.create({
+        name: `${config.ticketPrefix}${user.username}`,
         type: ChannelType.GuildText,
         parent: config.ticketCategoryId,
         permissionOverwrites: [
-          { id: interaction.guild.id, deny: ['ViewChannel'] },
-          { id: interaction.user.id, allow: ['ViewChannel', 'SendMessages', 'AttachFiles'] },
+          { id: guild.id, deny: ['ViewChannel'] },
+          { id: user.id, allow: ['ViewChannel', 'SendMessages', 'AttachFiles'] },
           { id: config.supportRoleId, allow: ['ViewChannel', 'SendMessages'] }
         ]
       });
 
+      // Embed z danymi formularza
       const embed = new EmbedBuilder()
-        .setTitle(`🎟️ Ticket — ${ticketType}`)
-        .setDescription('Witaj! Proszę wypełnij poniższy formularz:')
-        .setColor('#00AAFF');
+        .setTitle(`📩 Nowe ${type}`)
+        .setColor(customId === 'modal_create_ticket_order' ? '#00AAFF' : '#FFAA00')
+        .addFields(
+          { name: '🧾 Produkt', value: product, inline: false },
+          { name: '📦 Ilość', value: quantity, inline: true },
+          { name: '💳 Płatność', value: payment, inline: true },
+          { name: '🗒️ Uwagi', value: notes, inline: false }
+        )
+        .setFooter({ text: `Użytkownik: ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setTimestamp();
 
-      // Modal (formularz)
-      const modal = new ModalBuilder()
-        .setCustomId(`ticket_form_${ticketType}`)
-        .setTitle(`Formularz ${ticketType}`);
+      await ticketChannel.send({ content: `<@${user.id}>`, embeds: [embed] });
 
-      const q1 = new TextInputBuilder()
-        .setCustomId('order_details')
-        .setLabel('Opisz szczegóły (np. produkt, problem, ilość itp.)')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
-
-      const q2 = new TextInputBuilder()
-        .setCustomId('payment_method')
-        .setLabel('Metoda płatności (np. Blik, PayPal)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const row1 = new ActionRowBuilder().addComponents(q1);
-      const row2 = new ActionRowBuilder().addComponents(q2);
-      modal.addComponents(row1, row2);
-
-      await interaction.editReply({ content: `✅ Ticket został utworzony: ${ticketChannel}` });
-      await ticketChannel.send({ embeds: [embed] });
-      await interaction.showModal(modal);
-    }
-
-    // Obsługa modali
-    if (interaction.isModalSubmit()) {
-      const { customId } = interaction;
-      if (customId.startsWith('ticket_form_')) {
-        const details = interaction.fields.getTextInputValue('order_details');
-        const payment = interaction.fields.getTextInputValue('payment_method');
-
-        const summary = new EmbedBuilder()
-          .setTitle('📝 Formularz zamówienia')
-          .addFields(
-            { name: 'Szczegóły:', value: details },
-            { name: 'Metoda płatności:', value: payment }
-          )
-          .setColor('#00FF99');
-
-        await interaction.reply({ content: '✅ Formularz został zapisany!', ephemeral: true });
-        await interaction.channel.send({ embeds: [summary] });
-      }
+      await interaction.reply({
+        content: `✅ Utworzono ticket: ${ticketChannel}`,
+        ephemeral: true
+      });
     }
   }
 };
