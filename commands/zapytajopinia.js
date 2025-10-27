@@ -1,41 +1,31 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('zapytajopinia')
-        .setDescription('Wyślij formularz opinii do użytkownika.'),
-    async execute(interaction) {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_opinia')
-            .setTitle('Formularz opinii');
+  data: new SlashCommandBuilder()
+    .setName('opinia')
+    .setDescription('Wyślij formularz opinii do użytkownika.'),
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('czas')
-                    .setLabel('Czas oczekiwania (1-5)')
-                    .setStyle(TextInputStyle.Short)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('jakosc')
-                    .setLabel('Jakość produktu (1-5)')
-                    .setStyle(TextInputStyle.Short)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('przebieg')
-                    .setLabel('Przebieg transakcji (1-5)')
-                    .setStyle(TextInputStyle.Short)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('komentarz')
-                    .setLabel('Dodatkowy komentarz (opcjonalnie)')
-                    .setStyle(TextInputStyle.Paragraph)
-            )
-        );
+  async execute(interaction) {
+    const modal = new ModalBuilder()
+      .setCustomId('review_modal')
+      .setTitle('📝 Formularz opinii');
 
-        await interaction.showModal(modal);
-    }
+    const opinion = new TextInputBuilder()
+      .setCustomId('opinion')
+      .setLabel('Twoja opinia')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+
+    const rating = new TextInputBuilder()
+      .setCustomId('rating')
+      .setLabel('Ocena (1–5)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+
+    const row1 = new ActionRowBuilder().addComponents(opinion);
+    const row2 = new ActionRowBuilder().addComponents(rating);
+    modal.addComponents(row1, row2);
+
+    await interaction.showModal(modal);
+  }
 };
