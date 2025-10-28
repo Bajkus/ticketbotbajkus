@@ -1,33 +1,50 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  PermissionFlagsBits
+} = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Tworzy panel ticketowy (admin).'),
+    .setDescription('Tworzy panel ticketowy (tylko administrator)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
-    if (!interaction.member.permissions.has('ManageGuild'))
-      return interaction.reply({ content: '❌ Brak uprawnień.', ephemeral: true });
+    try {
+      // Tworzymy embed panelu ticketowego
+      const embed = new EmbedBuilder()
+        .setTitle('🎫 Panel ticketowy')
+        .setDescription('Wybierz typ ticketa, aby rozpocząć zgłoszenie.')
+        .setColor('Blue');
 
-    await interaction.deferReply({ ephemeral: true });
+      // Tworzymy przyciski
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('panel_zamowienie')
+          .setLabel('🛒 Zamówienie')
+          .setStyle(ButtonStyle.Primary),
 
-    const embed = new EmbedBuilder()
-      .setTitle('🎫 Panel ticketowy')
-      .setDescription('Kliknij przycisk, aby utworzyć ticket.')
-      .setColor('#00AAFF');
+        new ButtonBuilder()
+          .setCustomId('panel_reklamacja')
+          .setLabel('⚠️ Reklamacja')
+          .setStyle(ButtonStyle.Secondary)
+      );
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('create_ticket_order')
-        .setLabel('🛒 Zamówienie')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('create_ticket_complaint')
-        .setLabel('⚠️ Reklamacja')
-        .setStyle(ButtonStyle.Secondary)
-    );
+      // Wysyłamy panel do kanału
+      await interaction.channel.send({ embeds: [embed], components: [row] });
 
-    await interaction.channel.send({ embeds: [embed], components: [row] });
-    await interaction.editReply({ content: '✅ Panel ticketowy został utworzony!' });
+      // Odpowiedź ephemeral (żeby nie było „The application did not respond”)
+      await interaction.reply({ content: '✅ Panel ticketowy został utworzony!', ephemeral: true });
+
+    } catch (error) {
+      console.error('Błąd podczas uruchamiania /setup:', error);
+      if (!interaction.replied) {
+        await interaction.reply({ content: '❌ Wystąpił błąd podczas tworzenia panelu.', ephemeral: true });
+      }
+    }
   }
 };
