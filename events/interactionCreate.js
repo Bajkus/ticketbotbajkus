@@ -12,16 +12,16 @@ const config = require('../config.json');
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction) {
-    // === PANEL SETUP ===
+    // === /setup ===
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup') {
       if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild))
-        return interaction.reply({ content: 'Brak uprawnień.', ephemeral: true });
+        return interaction.reply({ content: '❌ Brak uprawnień.', ephemeral: true });
 
       const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
       const embed = new EmbedBuilder()
         .setTitle('🎟️ Panel ticketowy')
-        .setDescription('Kliknij przycisk, aby otworzyć ticket:')
+        .setDescription('Kliknij odpowiedni przycisk, aby otworzyć ticket:')
         .setColor('#2b2d31');
 
       const row = new ActionRowBuilder().addComponents(
@@ -60,25 +60,34 @@ module.exports = {
           ephemeral: true,
         });
 
+      // === FORMULARZ ===
       const modal = new ModalBuilder()
         .setCustomId(`formularz_${ticketType}`)
         .setTitle(`Formularz: ${ticketType}`);
+
+      const nazwaProduktuInput = new TextInputBuilder()
+        .setCustomId('produkt')
+        .setLabel('Nazwa produktu')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Np. Klawiatura Razer Huntsman Mini')
+        .setRequired(true);
 
       const iloscInput = new TextInputBuilder()
         .setCustomId('ilosc')
         .setLabel('Ilość produktów')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Np. 3')
+        .setPlaceholder('Np. 2')
         .setRequired(true);
 
       const metodaPlatnosciInput = new TextInputBuilder()
         .setCustomId('metoda')
         .setLabel('Metoda płatności')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Np. Przelew / PayPal / Blik')
+        .setPlaceholder('Np. PayPal / Przelew / Blik')
         .setRequired(true);
 
       modal.addComponents(
+        new ActionRowBuilder().addComponents(nazwaProduktuInput),
         new ActionRowBuilder().addComponents(iloscInput),
         new ActionRowBuilder().addComponents(metodaPlatnosciInput)
       );
@@ -86,15 +95,15 @@ module.exports = {
       await interaction.showModal(modal);
     }
 
-    // === FORMULARZ ===
+    // === WYSYŁKA FORMULARZA ===
     if (interaction.isModalSubmit()) {
       if (!interaction.customId.startsWith('formularz_')) return;
 
       const typ = interaction.customId.split('_')[1];
+      const produkt = interaction.fields.getTextInputValue('produkt');
       const ilosc = interaction.fields.getTextInputValue('ilosc');
       const metoda = interaction.fields.getTextInputValue('metoda');
 
-      // Tworzymy ticket
       const channel = await interaction.guild.channels.create({
         name: `${config.ticketPrefix}${interaction.user.username}`,
         type: ChannelType.GuildText,
@@ -127,14 +136,15 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle(`🎟️ Ticket - ${typ}`)
         .setDescription(
-          `Nowy ticket od <@${interaction.user.id}>\n\n📦 **Ilość:** ${ilosc}\n💳 **Metoda płatności:** ${metoda}`
+          `Nowy ticket od <@${interaction.user.id}>\n\n🏷️ **Produkt:** ${produkt}\n📦 **Ilość:** ${ilosc}\n💳 **Metoda płatności:** ${metoda}`
         )
         .setColor('#5865f2')
         .setTimestamp();
 
       await channel.send({ embeds: [embed] });
+
       await interaction.reply({
-        content: `✅ Ticket utworzony: ${channel}`,
+        content: `✅ Ticket utworzony pomyślnie: ${channel}`,
         ephemeral: true,
       });
     }
