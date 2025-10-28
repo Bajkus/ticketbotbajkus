@@ -1,154 +1,119 @@
 const {
+  Events,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   ActionRowBuilder,
   EmbedBuilder,
   ChannelType,
-  PermissionFlagsBits,
-  ButtonBuilder,
-  ButtonStyle,
+  PermissionFlagsBits
 } = require('discord.js');
+
 const config = require('../config.json');
 
 module.exports = {
-  name: 'interactionCreate',
-  async execute(interaction) {
-    try {
-      // === KOMENDA /setup ===
-      if (interaction.isChatInputCommand() && interaction.commandName === 'setup') {
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-          return interaction.reply({
-            content: '❌ Brak uprawnień do użycia tej komendy.',
-            ephemeral: true,
-          });
-        }
+  name: Events.InteractionCreate,
+  async execute(interaction, client) {
 
-        const embed = new EmbedBuilder()
-          .setTitle('🎟️ Panel ticketowy')
-          .setDescription('Kliknij odpowiedni przycisk, aby otworzyć ticket.')
-          .setColor('#2b2d31');
+    // -----------------------------
+    // Obsługa kliknięcia guzika panelu
+    // -----------------------------
+    if (interaction.isButton()) {
+      if (interaction.customId === 'panel_zamowienie' || interaction.customId === 'panel_reklamacja') {
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('panel_zamowienie')
-            .setLabel('🛒 Zamówienie')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('panel_reklamacja')
-            .setLabel('⚠️ Reklamacja')
-            .setStyle(ButtonStyle.Danger)
-        );
-
-        await interaction.reply({ content: '✅ Panel utworzony!', ephemeral: true });
-        await interaction.channel.send({ embeds: [embed], components: [row] });
-      }
-
-      // === OBSŁUGA PRZYCISKÓW ===
-      if (interaction.isButton()) {
-        const ticketType =
-          interaction.customId === 'panel_zamowienie'
-            ? 'Zamówienie'
-            : interaction.customId === 'panel_reklamacja'
-            ? 'Reklamacja'
-            : null;
-
-        if (!ticketType) return;
-
-        // Tworzymy modal (formularz)
+        // Tworzymy modal
         const modal = new ModalBuilder()
-          .setCustomId(`formularz_${ticketType}`)
-          .setTitle(`Formularz: ${ticketType}`);
+          .setCustomId(`ticket_modal_${interaction.customId}`)
+          .setTitle(interaction.customId === 'panel_zamowienie' ? 'Zamówienie' : 'Reklamacja');
 
-        const produkt = new TextInputBuilder()
+        const productInput = new TextInputBuilder()
           .setCustomId('produkt')
-          .setLabel('🏷️ Nazwa produktu')
+          .setLabel('Nazwa produktu')
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
-        const ilosc = new TextInputBuilder()
+        const quantityInput = new TextInputBuilder()
           .setCustomId('ilosc')
-          .setLabel('📦 Ilość produktów')
+          .setLabel('Ilość')
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
-        const metoda = new TextInputBuilder()
-          .setCustomId('metoda')
-          .setLabel('💳 Metoda płatności')
+        const paymentInput = new TextInputBuilder()
+          .setCustomId('platnosc')
+          .setLabel('Metoda płatności')
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
         modal.addComponents(
-          new ActionRowBuilder().addComponents(produkt),
-          new ActionRowBuilder().addComponents(ilosc),
-          new ActionRowBuilder().addComponents(metoda)
+          new ActionRowBuilder().addComponents(productInput),
+          new ActionRowBuilder().addComponents(quantityInput),
+          new ActionRowBuilder().addComponents(paymentInput)
         );
 
-        await interaction.showModal(modal);
-      }
-
-      // === OBSŁUGA FORMULARZA ===
-      if (interaction.isModalSubmit()) {
-        if (!interaction.customId.startsWith('formularz_')) return;
-
-        const typ = interaction.customId.split('_')[1];
-        const produkt = interaction.fields.getTextInputValue('produkt');
-        const ilosc = interaction.fields.getTextInputValue('ilosc');
-        const metoda = interaction.fields.getTextInputValue('metoda');
-
-        // Tworzenie kanału ticketa
-        const channel = await interaction.guild.channels.create({
-          name: `${config.ticketPrefix}${interaction.user.username}`,
-          type: ChannelType.GuildText,
-          parent: config.ticketCategoryId,
-          topic: `Ticket użytkownika ${interaction.user.tag}`,
-          permissionOverwrites: [
-            {
-              id: interaction.guild.id,
-              deny: [PermissionFlagsBits.ViewChannel],
-            },
-            {
-              id: interaction.user.id,
-              allow: [
-                PermissionFlagsBits.ViewChannel,
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.ReadMessageHistory,
-              ],
-            },
-            {
-              id: config.supportRoleId,
-              allow: [
-                PermissionFlagsBits.ViewChannel,
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.ReadMessageHistory,
-              ],
-            },
-          ],
-        });
-
-        const embed = new EmbedBuilder()
-          .setTitle(`🎟️ Ticket - ${typ}`)
-          .setColor('#5865f2')
-          .setDescription(
-            `Nowy ticket od <@${interaction.user.id}>\n\n🏷️ **Produkt:** ${produkt}\n📦 **Ilość:** ${ilosc}\n💳 **Metoda płatności:** ${metoda}`
-          )
-          .setTimestamp();
-
-        await channel.send({ embeds: [embed] });
-
-        await interaction.reply({
-          content: `✅ Ticket został utworzony: ${channel}`,
-          ephemeral: true,
-        });
-      }
-    } catch (err) {
-      console.error('❌ Błąd w interactionCreate:', err);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: '⚠️ Wystąpił nieoczekiwany błąd podczas przetwarzania interakcji.',
-          ephemeral: true,
-        });
+        return interaction.showModal(modal);
       }
     }
-  },
+
+    // -----------------------------
+    // Obsługa zatwierdzenia modala
+    // -----------------------------
+    if (interaction.isModalSubmit()) {
+
+      if (!interaction.customId.startsWith('ticket_modal_')) return;
+
+      // Logi debugowe
+      console.log('Modal zatwierdzony przez:', interaction.user.tag);
+
+      const produkt = interaction.fields.getTextInputValue('produkt');
+      const ilosc = interaction.fields.getTextInputValue('ilosc');
+      const platnosc = interaction.fields.getTextInputValue('platnosc');
+
+      // Sprawdzenie guild i kategorii
+      const guild = interaction.guild;
+      if (!guild) return interaction.reply({ content: '❌ Ta komenda działa tylko na serwerze.', ephemeral: true });
+
+      const categoryId = config.ticketCategoryId;
+      const supportRoleId = config.supportRoleId;
+      if (!categoryId || !supportRoleId) {
+        console.error('Brak ID kategorii lub roli support w config.json');
+        return interaction.reply({ content: '❌ Niepoprawna konfiguracja bota.', ephemeral: true });
+      }
+
+      // Tworzenie kanału ticketowego
+      let ticketChannel;
+      try {
+        ticketChannel = await guild.channels.create({
+          name: `${config.ticketPrefix}${interaction.user.username}`,
+          type: ChannelType.GuildText,
+          parent: categoryId,
+          topic: `Ticket użytkownika ${interaction.user.tag}`,
+          permissionOverwrites: [
+            { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
+          ]
+        });
+      } catch (err) {
+        console.error('Błąd przy tworzeniu kanału ticketa:', err);
+        return interaction.reply({ content: '❌ Nie udało się utworzyć kanału ticketa. Sprawdź uprawnienia i ID w config.', ephemeral: true });
+      }
+
+      // Wysłanie embedu z formularzem do nowego kanału
+      const embed = new EmbedBuilder()
+        .setTitle(interaction.customId.includes('zamowienie') ? 'Nowe zamówienie' : 'Nowa reklamacja')
+        .addFields(
+          { name: 'Użytkownik', value: `<@${interaction.user.id}>`, inline: true },
+          { name: 'Produkt', value: produkt, inline: true },
+          { name: 'Ilość', value: ilosc, inline: true },
+          { name: 'Metoda płatności', value: platnosc, inline: true }
+        )
+        .setTimestamp()
+        .setColor('Green');
+
+      await ticketChannel.send({ content: `Witaj <@${interaction.user.id}>! Twój ticket został utworzony.`, embeds: [embed] });
+
+      // Odpowiedź dla użytkownika
+      await interaction.reply({ content: `✅ Twój ticket został utworzony: ${ticketChannel}`, ephemeral: true });
+    }
+  }
 };
